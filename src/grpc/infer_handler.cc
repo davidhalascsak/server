@@ -978,16 +978,20 @@ ModelInferHandler::Execute(InferHandler::State* state)
   if (err == nullptr) {
     state->context_->InsertInflightState(state);
     const std::set<std::string>* ref_shm_regions = nullptr;
-    err = TRITONSERVER_InferenceRequestGetRefShmRegions(request, &ref_shm_regions);
+    err = TRITONSERVER_InferenceRequestGetRefShmRegions(
+        irequest, &ref_shm_regions);
 
-    std::cerr << "#################### TRITONSERVER_InferenceRequestGetRefShmRegions #########################" << std::endl;
+    std::cerr
+        << "#################### TRITONSERVER_InferenceRequestGetRefShmRegions "
+           "#########################"
+        << std::endl;
     if (ref_shm_regions != nullptr) {
-        std::cout << "Shared Memory Regions:" << std::endl;
-        
-        // Iterate and print each region
-        for (const auto& region : *ref_shm_regions) {
-            std::cout << "region name: - " << region << std::endl;
-        }
+      std::cout << "Shared Memory Regions:" << std::endl;
+
+      // Iterate and print each region
+      for (const auto& region : *ref_shm_regions) {
+        std::cout << "region name: - " << region << std::endl;
+      }
     }
     std::cerr << "#############################################" << std::endl;
 
