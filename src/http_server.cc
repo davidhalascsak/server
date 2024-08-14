@@ -2730,7 +2730,7 @@ HTTPAPIServer::ParseJsonTritonIO(
                     << std::endl;
 
           bool is_added = false;
-          RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddRefShmRegion(
+          RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddInputRefShmRegion(
               irequest, shm_region, &is_added));
           if (is_added) {
             RETURN_IF_ERR(shm_manager_->IncrementRefCount(shm_region));
@@ -2840,7 +2840,7 @@ HTTPAPIServer::ParseJsonTritonIO(
           std::cerr << "----------- Detected shm output: " << shm_region
                     << std::endl;
           bool is_added = false;
-          RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddRefShmRegion(
+          RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddOutputRefShmRegion(
               irequest, shm_region, &is_added));
           if (is_added) {
             RETURN_IF_ERR(shm_manager_->IncrementRefCount(shm_region));
@@ -3372,8 +3372,8 @@ HTTPAPIServer::HandleGenerate(
           input_metadata, generate_request->RequestSchema(), request),
       error_callback);
 
-  auto request_release_payload =
-      std::make_unique<RequestReleasePayload>(irequest_shared, nullptr);
+  auto request_release_payload = std::make_unique<RequestReleasePayload>(
+      irequest_shared, nullptr, shm_manager_);
   // [FIXME] decompression..
   RETURN_AND_CALLBACK_IF_ERR(
       TRITONSERVER_InferenceRequestSetReleaseCallback(
@@ -3703,7 +3703,7 @@ HTTPAPIServer::HandleInfer(
   RETURN_AND_CALLBACK_IF_ERR(ForwardHeaders(req, irequest), error_callback);
 
   auto request_release_payload = std::make_unique<RequestReleasePayload>(
-      irequest_shared, decompressed_buffer);
+      irequest_shared, decompressed_buffer, shm_manager_);
   RETURN_AND_CALLBACK_IF_ERR(
       TRITONSERVER_InferenceRequestSetReleaseCallback(
           irequest, InferRequestClass::InferRequestComplete,
@@ -3804,6 +3804,16 @@ HTTPAPIServer::InferRequestClass::InferRequestComplete(
       reinterpret_cast<RequestReleasePayload*>(userp);
 
   if ((flags & TRITONSERVER_REQUEST_RELEASE_ALL) != 0) {
+    std::shared_ptr<SharedMemoryManager> shm_manager =
+        request_release_payload->GetShmManager();
+    const std::set<std::string>* ref_shm_regions = nullptr;
+    TRITONSERVER_InferenceRequestGetInputRefShmRegions(
+        request, &ref_shm_regions);
+
+    for (const auto& region_name : *ref_shm_regions) {
+      shm_manager->DecrementRefCount(region_name);
+    }
+
     delete request_release_payload;
   }
 }
@@ -3863,6 +3873,7 @@ HTTPAPIServer::InferRequestClass::InferResponseComplete(
   }
   evthr_defer(
       infer_request->thread_, InferRequestClass::ReplyCallback, infer_request);
+  // need to handle multiple responses
 }
 
 TRITONSERVER_Error*

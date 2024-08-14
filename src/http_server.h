@@ -247,7 +247,7 @@ class HTTPAPIServer : public HTTPServer {
       }
     }
 
-    AllocPayload() : default_output_kind_(OutputInfo::Kind::JSON){};
+    AllocPayload() : default_output_kind_(OutputInfo::Kind::JSON) {};
     std::unordered_map<std::string, OutputInfo*> output_map_;
     AllocPayload::OutputInfo::Kind default_output_kind_;
   };
@@ -414,22 +414,37 @@ class HTTPAPIServer : public HTTPServer {
 
   // Simple structure that carries the userp payload needed for
   // request release callback.
-  struct RequestReleasePayload final {
+  class RequestReleasePayload final {
+   public:
     RequestReleasePayload(
         const std::shared_ptr<TRITONSERVER_InferenceRequest>& inference_request,
-        evbuffer* buffer)
-        : inference_request_(inference_request), buffer_(buffer){};
+        evbuffer* buffer, std::shared_ptr<SharedMemoryManager> shm_manager)
+        : inference_request_(inference_request), buffer_(buffer),
+          shm_manager_(shm_manager)
+    {
+    }
 
     ~RequestReleasePayload()
     {
       if (buffer_ != nullptr) {
         evbuffer_free(buffer_);
       }
-    };
+    }
+
+    std::shared_ptr<SharedMemoryManager> GetShmManager() const
+    {
+      return shm_manager_;
+    }
+
+    std::shared_ptr<TRITONSERVER_InferenceRequest> GetInferenceRequest() const
+    {
+      return inference_request_;
+    }
 
    private:
     std::shared_ptr<TRITONSERVER_InferenceRequest> inference_request_ = nullptr;
     evbuffer* buffer_ = nullptr;
+    std::shared_ptr<SharedMemoryManager> shm_manager_ = nullptr;
   };
 
  protected:

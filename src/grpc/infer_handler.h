@@ -88,15 +88,30 @@ class Barrier {
   size_t generation_;
 };
 
-// Simple structure that carries the userp payload needed for
+// Simple class that carries the userp payload needed for
 // request release callback.
-struct RequestReleasePayload final {
+class RequestReleasePayload final {
+ public:
   explicit RequestReleasePayload(
-      const std::shared_ptr<TRITONSERVER_InferenceRequest>& inference_request)
-      : inference_request_(inference_request) {};
+      const std::shared_ptr<TRITONSERVER_InferenceRequest>& inference_request,
+      std::shared_ptr<SharedMemoryManager> shm_manager)
+      : inference_request_(inference_request), shm_manager_(shm_manager)
+  {
+  }
+
+  std::shared_ptr<SharedMemoryManager> GetShmManager() const
+  {
+    return shm_manager_;
+  }
+
+  std::shared_ptr<TRITONSERVER_InferenceRequest> GetInferenceRequest() const
+  {
+    return inference_request_;
+  }
 
  private:
   std::shared_ptr<TRITONSERVER_InferenceRequest> inference_request_ = nullptr;
+  std::shared_ptr<SharedMemoryManager> shm_manager_ = nullptr;
 };
 
 //
@@ -352,7 +367,7 @@ InferAllocatorPayload(
 #endif
       } else {
         bool is_added = false;
-        RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddRefShmRegion(
+        RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddOutputRefShmRegion(
             inference_request, region_name.c_str(), &is_added));
         if (is_added) {
           RETURN_IF_ERR(shm_manager->IncrementRefCount(region_name));

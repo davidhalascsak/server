@@ -713,6 +713,10 @@ SharedMemoryManager::IncrementRefCount(const std::string& name)
 TRITONSERVER_Error*
 SharedMemoryManager::DecrementRefCount(const std::string& name)
 {
+  std::cerr
+      << "************************** SharedMemoryManager::DecrementRefCount() "
+         "***********************"
+      << "\nname: " << name;
   // protect shared_memory_map_ from concurrent access
   std::lock_guard<std::mutex> lock(mu_);
 
@@ -723,7 +727,11 @@ SharedMemoryManager::DecrementRefCount(const std::string& name)
         std::string("Unable to find shared memory region: '" + name + "'")
             .c_str());
   }
+  std::cerr << "\nBefore Decrement, count: " << it->second->ref_count_;
   --(it->second->ref_count_);
+  std::cerr << "\nAfter Decrement, count: " << it->second->ref_count_
+            << "\n*************************************************"
+            << std::endl;
   return nullptr;
 }
 

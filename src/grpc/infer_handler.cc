@@ -445,7 +445,7 @@ InferGRPCToInput(
 #endif
       } else {
         bool is_added = false;
-        RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddRefShmRegion(
+        RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddInputRefShmRegion(
             inference_request, region_name.c_str(), &is_added));
         if (is_added) {
           RETURN_IF_ERR(shm_manager->IncrementRefCount(region_name));
@@ -659,6 +659,15 @@ InferRequestComplete(
       static_cast<RequestReleasePayload*>(userp);
 
   if ((flags & TRITONSERVER_REQUEST_RELEASE_ALL) != 0) {
+    std::shared_ptr<SharedMemoryManager> shm_manager =
+        request_release_payload->GetShmManager();
+    const std::set<std::string>* ref_shm_regions = nullptr;
+    TRITONSERVER_InferenceRequestGetInputRefShmRegions(
+        request, &ref_shm_regions);
+
+    for (const auto& region_name : *ref_shm_regions) {
+      shm_manager->DecrementRefCount(region_name);
+    }
     delete request_release_payload;
   }
 }
@@ -930,8 +939,8 @@ ModelInferHandler::Execute(InferHandler::State* state)
         response_queue, &state->alloc_payload_, irequest);
   }
 
-  auto request_release_payload =
-      std::make_unique<RequestReleasePayload>(state->inference_request_);
+  auto request_release_payload = std::make_unique<RequestReleasePayload>(
+      state->inference_request_, shm_manager_);
   if (err == nullptr) {
     err = TRITONSERVER_InferenceRequestSetReleaseCallback(
         irequest, InferRequestComplete,
@@ -978,7 +987,7 @@ ModelInferHandler::Execute(InferHandler::State* state)
   if (err == nullptr) {
     state->context_->InsertInflightState(state);
     const std::set<std::string>* ref_shm_regions = nullptr;
-    err = TRITONSERVER_InferenceRequestGetRefShmRegions(
+    err = TRITONSERVER_InferenceRequestGetInputRefShmRegions(
         irequest, &ref_shm_regions);
 
     std::cerr

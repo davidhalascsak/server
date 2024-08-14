@@ -541,7 +541,7 @@ SagemakerAPIServer::SageMakerMMEHandleInfer(
 
     auto infer_request = CreateInferRequest(req, irequest_shared);
     auto request_release_payload = std::make_unique<RequestReleasePayload>(
-        irequest_shared, decompressed_buffer);
+        irequest_shared, decompressed_buffer, shm_manager_);
 
 #ifdef TRITON_ENABLE_TRACING
     infer_request->trace_ = trace;
