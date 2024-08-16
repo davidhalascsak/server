@@ -334,9 +334,11 @@ class HTTPAPIServer : public HTTPServer {
         DataCompressor::Type response_compression_type,
         const MappingSchema* request_schema,
         const MappingSchema* response_schema, bool streaming,
-        const std::shared_ptr<TRITONSERVER_InferenceRequest>& triton_request)
+        const std::shared_ptr<TRITONSERVER_InferenceRequest>& triton_request,
+        const std::shared_ptr<triton::server::SharedMemoryManager>& shm_manager)
         : InferRequestClass(
-              server, req, response_compression_type, triton_request),
+              server, req, response_compression_type, triton_request,
+              shm_manager),
           request_schema_(request_schema), response_schema_(response_schema),
           streaming_(streaming)
     {
