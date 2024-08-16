@@ -3880,7 +3880,7 @@ HTTPAPIServer::InferRequestClass::InferResponseComplete(
 
     if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
       for (const auto& region_name : *ref_shm_regions) {
-        shm_manager_->DecrementRefCount(region_name);
+        infer_request->shm_manager_->DecrementRefCount(region_name);
       }
     }
   }
