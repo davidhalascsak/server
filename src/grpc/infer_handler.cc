@@ -665,8 +665,10 @@ InferRequestComplete(
     TRITONSERVER_InferenceRequestGetInputRefShmRegions(
         request, &ref_shm_regions);
 
-    for (const auto& region_name : *ref_shm_regions) {
-      shm_manager->DecrementRefCount(region_name);
+    if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
+      for (const auto& region_name : *ref_shm_regions) {
+        shm_manager->DecrementRefCount(region_name);
+      }
     }
     delete request_release_payload;
   }
@@ -1057,6 +1059,16 @@ ModelInferHandler::InferResponseComplete(
   // If gRPC Stream is cancelled then no need of forming and returning
   // a response.
   if (state->IsGrpcContextCancelled()) {
+    const std::set<std::string>* ref_shm_regions = nullptr;
+    TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
+        state->inference_request_.get(), &ref_shm_regions);
+
+    if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
+      for (const auto& region_name : *ref_shm_regions) {
+        shm_manager_->DecrementRefCount(region_name);
+      }
+    }
+
     // Clean-up the received response object.
     LOG_TRITONSERVER_ERROR(
         TRITONSERVER_InferenceResponseDelete(iresponse),
@@ -1123,6 +1135,18 @@ ModelInferHandler::InferResponseComplete(
   // there is error
   if ((flags & TRITONSERVER_RESPONSE_COMPLETE_FINAL) == 0) {
     return;
+  }
+
+  if (flags & TRITONSERVER_RESPONSE_COMPLETE_FINAL) {
+    const std::set<std::string>* ref_shm_regions = nullptr;
+    TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
+        state->inference_request_.get(), &ref_shm_regions);
+
+    if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
+      for (const auto& region_name : *ref_shm_regions) {
+        shm_manager_->DecrementRefCount(region_name);
+      }
+    }
   }
 
 

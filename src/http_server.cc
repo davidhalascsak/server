@@ -3658,7 +3658,7 @@ HTTPAPIServer::HandleInfer(
   // HTTP request paused when creating inference request. Resume it on exit if
   // this function returns early due to error. Otherwise resumed in callback.
   bool connection_paused = true;
-  auto infer_request = CreateInferRequest(req, irequest_shared);
+  auto infer_request = CreateInferRequest(req, irequest_shared, shm_manager_);
   infer_request->trace_ = trace;
 
   const char* request_id = "<id_unknown>";
@@ -3780,10 +3780,11 @@ HTTPAPIServer::InferRequestClass::RequestFiniHook(
 HTTPAPIServer::InferRequestClass::InferRequestClass(
     TRITONSERVER_Server* server, evhtp_request_t* req,
     DataCompressor::Type response_compression_type,
-    const std::shared_ptr<TRITONSERVER_InferenceRequest>& triton_request)
+    const std::shared_ptr<TRITONSERVER_InferenceRequest>& triton_request,
+    const std::shared_ptr<SharedMemoryManager>& shm_manager)
     : server_(server), req_(req),
       response_compression_type_(response_compression_type), response_count_(0),
-      triton_request_(triton_request)
+      triton_request_(triton_request), shm_manager_(shm_manager)
 {
   evhtp_connection_t* htpconn = evhtp_request_get_connection(req);
   thread_ = htpconn->thread;
@@ -3810,8 +3811,10 @@ HTTPAPIServer::InferRequestClass::InferRequestComplete(
     TRITONSERVER_InferenceRequestGetInputRefShmRegions(
         request, &ref_shm_regions);
 
-    for (const auto& region_name : *ref_shm_regions) {
-      shm_manager->DecrementRefCount(region_name);
+    if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
+      for (const auto& region_name : *ref_shm_regions) {
+        shm_manager->DecrementRefCount(region_name);
+      }
     }
 
     delete request_release_payload;
@@ -3870,10 +3873,20 @@ HTTPAPIServer::InferRequestClass::InferResponseComplete(
   // Defer sending the response until FINAL flag is seen
   if ((flags & TRITONSERVER_RESPONSE_COMPLETE_FINAL) == 0) {
     return;
+  } else {
+    const std::set<std::string>* ref_shm_regions = nullptr;
+    TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
+        infer_request->triton_request_.get(), &ref_shm_regions);
+
+    if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
+      for (const auto& region_name : *ref_shm_regions) {
+        shm_manager_->DecrementRefCount(region_name);
+      }
+    }
   }
+
   evthr_defer(
       infer_request->thread_, InferRequestClass::ReplyCallback, infer_request);
-  // need to handle multiple responses
 }
 
 TRITONSERVER_Error*

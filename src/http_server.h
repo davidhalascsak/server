@@ -264,7 +264,8 @@ class HTTPAPIServer : public HTTPServer {
     explicit InferRequestClass(
         TRITONSERVER_Server* server, evhtp_request_t* req,
         DataCompressor::Type response_compression_type,
-        const std::shared_ptr<TRITONSERVER_InferenceRequest>& triton_request);
+        const std::shared_ptr<TRITONSERVER_InferenceRequest>& triton_request,
+        const std::shared_ptr<SharedMemoryManager>& shm_manager);
     virtual ~InferRequestClass()
     {
       if (req_ != nullptr) {
@@ -322,6 +323,7 @@ class HTTPAPIServer : public HTTPServer {
     // TRITONSERVER_ServerInferAsync (except for cancellation).
     std::shared_ptr<TRITONSERVER_InferenceRequest> triton_request_{nullptr};
 
+    std::shared_ptr<SharedMemoryManager> shm_manager_{nullptr};
     evhtp_res response_code_{EVHTP_RES_OK};
   };
 
@@ -418,7 +420,8 @@ class HTTPAPIServer : public HTTPServer {
    public:
     RequestReleasePayload(
         const std::shared_ptr<TRITONSERVER_InferenceRequest>& inference_request,
-        evbuffer* buffer, std::shared_ptr<SharedMemoryManager> shm_manager)
+        evbuffer* buffer,
+        const std::shared_ptr<SharedMemoryManager>& shm_manager)
         : inference_request_(inference_request), buffer_(buffer),
           shm_manager_(shm_manager)
     {
@@ -460,10 +463,12 @@ class HTTPAPIServer : public HTTPServer {
   // [FIXME] extract to "infer" class
   virtual std::unique_ptr<InferRequestClass> CreateInferRequest(
       evhtp_request_t* req,
-      const std::shared_ptr<TRITONSERVER_InferenceRequest>& triton_request)
+      const std::shared_ptr<TRITONSERVER_InferenceRequest>& triton_request,
+      const std::shared_ptr<SharedMemoryManager>& shm_manager)
   {
     return std::unique_ptr<InferRequestClass>(new InferRequestClass(
-        server_.get(), req, GetResponseCompressionType(req), triton_request));
+        server_.get(), req, GetResponseCompressionType(req), triton_request,
+        shm_manager));
   }
 
   // Helper function to retrieve infer request header in the form specified by
