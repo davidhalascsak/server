@@ -26,7 +26,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
-import distro
 import importlib.util
 import multiprocessing
 import os
@@ -38,6 +37,7 @@ import subprocess
 import sys
 from inspect import getsourcefile
 
+import distro
 import requests
 
 #
