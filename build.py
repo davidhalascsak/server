@@ -919,7 +919,6 @@ FROM ${BASE_IMAGE}
 ARG TRITON_VERSION
 ARG TRITON_CONTAINER_VERSION
 """
-
     df += """
 # Install docker docker buildx
 RUN yum install -y ca-certificates curl gnupg yum-utils \\
@@ -1326,8 +1325,7 @@ RUN yum install -y \\
         gperftools-devel \\
         patchelf \\
         wget \\
-        numactl-devel \\
-        wget
+        numactl-devel
 """
     else:
         df += """
@@ -1991,6 +1989,10 @@ def backend_clone(
 
     clone_script.cp(
         os.path.join(build_dir, be, "src", "model.py"),
+        backend_dir,
+    )
+    clone_script.cpdir(
+        os.path.join(build_dir, be, "src", "utils"),
         backend_dir,
     )
 
