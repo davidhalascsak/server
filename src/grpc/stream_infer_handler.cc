@@ -294,6 +294,11 @@ ModelStreamInferHandler::Process(InferHandler::State* state, bool rpc_ok)
 
     auto request_release_payload = std::make_unique<RequestReleasePayload>(
         state->inference_request_, shm_manager_);
+
+    std::shared_ptr<InferHandler::State> state_shared_ptr(state);
+    auto response_release_payload = std::make_unique<ResponseReleasePayload>(
+        state_shared_ptr, shm_manager_);
+
     if (err == nullptr) {
       err = TRITONSERVER_InferenceRequestSetReleaseCallback(
           irequest, InferRequestComplete,
@@ -303,7 +308,8 @@ ModelStreamInferHandler::Process(InferHandler::State* state, bool rpc_ok)
       err = TRITONSERVER_InferenceRequestSetResponseCallback(
           irequest, allocator_,
           &state->alloc_payload_ /* response_allocator_userp */,
-          StreamInferResponseComplete, reinterpret_cast<void*>(state));
+          StreamInferResponseComplete,
+        response_release_payload.get() /* response_userp */);
     }
 
     if (err == nullptr) {

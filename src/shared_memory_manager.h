@@ -90,8 +90,8 @@ class SharedMemoryManager {
   /// \param memory_type Returns the type of the memory
   /// \param device_id Returns the device id associated with the
   /// memory block
-  /// \param ref_count Returns the number of inference requests currently using this
-  /// shared memory block
+  /// \param ref_count Returns the number of inference requests currently using
+  /// this shared memory block
   /// \return a TRITONSERVER_Error indicating success or failure.
   TRITONSERVER_Error* GetMemoryInfo(
       const std::string& name, size_t offset, size_t byte_size,
@@ -133,7 +133,8 @@ class SharedMemoryManager {
   /// Unregister all shared memory blocks of specified type from the manager.
   /// \param memory_type The type of memory to unregister.
   /// \return a TRITONSERVER_Error indicating success or failure.
-  TRITONSERVER_Error* UnregisterAll(TRITONSERVER_MemoryType memory_type);
+  TRITONSERVER_Error* UnregisterAll(
+      TRITONSERVER_MemoryType memory_type, const bool ignore_ref_count = false);
 
   /// Increments the reference count for the named shared memory block.
   /// \param name The name of the shared memory block.
@@ -149,7 +150,8 @@ class SharedMemoryManager {
   /// A helper function to remove the named shared memory blocks of
   /// specified type
   TRITONSERVER_Error* UnregisterHelper(
-      const std::string& name, TRITONSERVER_MemoryType memory_type);
+      const std::string& name, TRITONSERVER_MemoryType memory_type,
+      const bool ignore_ref_count = false);
 
   /// A struct that records the shared memory regions registered by the shared
   /// memory manager.

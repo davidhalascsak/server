@@ -943,6 +943,11 @@ ModelInferHandler::Execute(InferHandler::State* state)
 
   auto request_release_payload = std::make_unique<RequestReleasePayload>(
       state->inference_request_, shm_manager_);
+
+  std::shared_ptr<InferHandler::State> state_shared_ptr(state);
+  auto response_release_payload =
+      std::make_unique<ResponseReleasePayload>(state_shared_ptr, shm_manager_);
+
   if (err == nullptr) {
     err = TRITONSERVER_InferenceRequestSetReleaseCallback(
         irequest, InferRequestComplete,
@@ -952,7 +957,8 @@ ModelInferHandler::Execute(InferHandler::State* state)
     err = TRITONSERVER_InferenceRequestSetResponseCallback(
         irequest, allocator_,
         &state->alloc_payload_ /* response_allocator_userp */,
-        InferResponseComplete, reinterpret_cast<void*>(state));
+        InferResponseComplete,
+        response_release_payload.get() /* response_userp */);
   }
   // Get request ID for logging in case of error.
   const char* request_id = "";
@@ -1034,7 +1040,10 @@ ModelInferHandler::InferResponseComplete(
     TRITONSERVER_InferenceResponse* iresponse, const uint32_t flags,
     void* userp)
 {
-  State* state = reinterpret_cast<State*>(userp);
+  ResponseReleasePayload* response_release_payload =
+      static_cast<ResponseReleasePayload*>(userp);
+  auto state = response_release_payload->GetState();
+  auto shm_manager = response_release_payload->GetShmManager();
 
   // There are multiple handlers registered in the gRPC service
   // Hence, we would need to properly synchronize this thread
@@ -1065,7 +1074,7 @@ ModelInferHandler::InferResponseComplete(
 
     if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
       for (const auto& region_name : *ref_shm_regions) {
-        shm_manager_->DecrementRefCount(region_name);
+        shm_manager->DecrementRefCount(region_name);
       }
     }
 
@@ -1086,6 +1095,7 @@ ModelInferHandler::InferResponseComplete(
     // in the next cycle.
     state->context_->PutTaskBackToQueue(state);
 
+    delete response_release_payload;
     return;
   }
 
@@ -1134,6 +1144,7 @@ ModelInferHandler::InferResponseComplete(
   // Defer sending the response until FINAL flag is seen or
   // there is error
   if ((flags & TRITONSERVER_RESPONSE_COMPLETE_FINAL) == 0) {
+    delete response_release_payload;
     return;
   }
 
@@ -1144,7 +1155,7 @@ ModelInferHandler::InferResponseComplete(
 
     if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
       for (const auto& region_name : *ref_shm_regions) {
-        shm_manager_->DecrementRefCount(region_name);
+        shm_manager->DecrementRefCount(region_name);
       }
     }
   }
@@ -1160,6 +1171,7 @@ ModelInferHandler::InferResponseComplete(
   if (response_created) {
     delete response;
   }
+  delete response_release_payload;
 }
 
 }}}  // namespace triton::server::grpc

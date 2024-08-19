@@ -99,7 +99,8 @@ SharedMemoryManager::Unregister(
 }
 
 TRITONSERVER_Error*
-SharedMemoryManager::UnregisterAll(TRITONSERVER_MemoryType memory_type)
+SharedMemoryManager::UnregisterAll(
+    TRITONSERVER_MemoryType memory_type, const bool ignore_ref_count)
 {
   return TRITONSERVER_ErrorNew(
       TRITONSERVER_ERROR_UNSUPPORTED,
@@ -127,7 +128,8 @@ SharedMemoryManager::DecrementRefCount(const std::string& name)
 
 TRITONSERVER_Error*
 SharedMemoryManager::UnregisterHelper(
-    const std::string& name, TRITONSERVER_MemoryType memory_type)
+    const std::string& name, TRITONSERVER_MemoryType memory_type,
+    const bool ignore_ref_count)
 {
   return TRITONSERVER_ErrorNew(
       TRITONSERVER_ERROR_UNSUPPORTED,
@@ -362,8 +364,8 @@ CheckCudaSharedMemoryRegionSize(
 
 SharedMemoryManager::~SharedMemoryManager()
 {
-  UnregisterAll(TRITONSERVER_MEMORY_CPU);
-  UnregisterAll(TRITONSERVER_MEMORY_GPU);
+  UnregisterAll(TRITONSERVER_MEMORY_CPU, true /* ignore_ref_count */);
+  UnregisterAll(TRITONSERVER_MEMORY_GPU, true /* ignore_ref_count */);
 }
 
 TRITONSERVER_Error*
@@ -639,7 +641,8 @@ SharedMemoryManager::Unregister(
 }
 
 TRITONSERVER_Error*
-SharedMemoryManager::UnregisterAll(TRITONSERVER_MemoryType memory_type)
+SharedMemoryManager::UnregisterAll(
+    TRITONSERVER_MemoryType memory_type, const bool ignore_ref_count)
 {
   std::lock_guard<std::mutex> lock(mu_);
   std::string error_message = "Failed to unregister the following ";
@@ -651,7 +654,8 @@ SharedMemoryManager::UnregisterAll(TRITONSERVER_MemoryType memory_type)
          it != shared_memory_map_.cend(); it = next_it) {
       ++next_it;
       if (it->second->kind_ == TRITONSERVER_MEMORY_CPU) {
-        TRITONSERVER_Error* err = UnregisterHelper(it->first, memory_type);
+        TRITONSERVER_Error* err =
+            UnregisterHelper(it->first, memory_type, ignore_ref_count);
         if (err != nullptr) {
           unregister_fails.push_back(it->first);
           LOG_VERBOSE(1) << TRITONSERVER_ErrorMessage(err);
@@ -737,17 +741,18 @@ SharedMemoryManager::DecrementRefCount(const std::string& name)
 
 TRITONSERVER_Error*
 SharedMemoryManager::UnregisterHelper(
-    const std::string& name, TRITONSERVER_MemoryType memory_type)
+    const std::string& name, TRITONSERVER_MemoryType memory_type,
+    const bool ignore_ref_count)
 {
   // Must hold the lock on register_mu_ while calling this function.
   auto it = shared_memory_map_.find(name);
   if (it != shared_memory_map_.end() && it->second->kind_ == memory_type) {
     if (it->second->kind_ == TRITONSERVER_MEMORY_CPU) {
-      if (it->second->ref_count_ > 0) {
+      if (!ignore_ref_count && it->second->ref_count_ > 0) {
         return TRITONSERVER_ErrorNew(
             TRITONSERVER_ERROR_INTERNAL,
             std::string(
-                "Unable to unregister shared memory region '" + name +
+                "Cannot unregister shared memory region '" + name +
                 "' as it is currently in use by " +
                 std::to_string(it->second->ref_count_) + " requests.")
                 .c_str());
