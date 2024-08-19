@@ -1,5 +1,4 @@
-#!/bin/bash
-# Copyright (c) 2021, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright 2020-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -25,27 +24,29 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# Determine the operating system to call the correct package manager.
-ID_LIKE=$(grep -Po '(?<=ID_LIKE=).*' /etc/os-release | awk -F= '{print $1}' |  tr -d '"' | awk '{print $1}')
+import triton_python_backend_utils as pb_utils
 
-# Note: This script is to be used with customized triton containers that need
-# dependencies to run L0_infer tests
-if [[ "$ID_LIKE" =~ "debian" ]]; then
-    apt-get update && \
-        apt-get install -y --no-install-recommends \
-            curl \
-            jq \
-            python3 \
-            python3-pip
-else
-    yum install -y \
-        jq \
-        curl
-fi
 
-pip3 install --upgrade pip
-# install client libraries
-pip3 install tritonclient[all]
+class TritonPythonModel:
+    def __init__(self):
+        # Maintain total inference count, so as to return error on 2nd request, all of this to simulate model failure
+        self.inf_count = 1
 
-# Run the actual test
-bash -x test.sh
+    def execute(self, requests):
+        """This function is called on inference request."""
+        responses = []
+
+        # Generate the error for the second request
+        for request in requests:
+            input_tensor = pb_utils.get_input_tensor_by_name(request, "IN")
+            out_tensor = pb_utils.Tensor("OUT", input_tensor.as_numpy())
+            if self.inf_count % 2:
+                # Every odd request is success
+                responses.append(pb_utils.InferenceResponse([out_tensor]))
+            else:
+                # Every even request is failure
+                error = pb_utils.TritonError("An error occurred during execution")
+                responses.append(pb_utils.InferenceResponse([out_tensor], error))
+            self.inf_count += 1
+
+        return responses
