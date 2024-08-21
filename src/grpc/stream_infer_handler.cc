@@ -295,6 +295,9 @@ ModelStreamInferHandler::Process(InferHandler::State* state, bool rpc_ok)
     auto request_release_payload = std::make_unique<RequestReleasePayload>(
         state->inference_request_, shm_manager_);
 
+    auto response_release_payload =
+        std::make_unique<StreamResponseReleasePayload>(state, shm_manager_);
+
     if (err == nullptr) {
       err = TRITONSERVER_InferenceRequestSetReleaseCallback(
           irequest, InferRequestComplete,
@@ -304,7 +307,8 @@ ModelStreamInferHandler::Process(InferHandler::State* state, bool rpc_ok)
       err = TRITONSERVER_InferenceRequestSetResponseCallback(
           irequest, allocator_,
           &state->alloc_payload_ /* response_allocator_userp */,
-          StreamInferResponseComplete, reinterpret_cast<void*>(state));
+          StreamInferResponseComplete,
+          response_release_payload.get() /* response_userp */);
     }
 
     if (err == nullptr) {
@@ -331,8 +335,9 @@ ModelStreamInferHandler::Process(InferHandler::State* state, bool rpc_ok)
     // irequest to handle gRPC stream cancellation.
     if (err == nullptr) {
       state->context_->InsertInflightState(state);
-      // The payload will be cleaned in request release callback.
+      // The payload will be cleaned in callback methods.
       request_release_payload.release();
+      response_release_payload.release();
     } else {
       // If there was an error then enqueue the error response and show
       // it to be ready for writing.
@@ -595,7 +600,12 @@ ModelStreamInferHandler::StreamInferResponseComplete(
     TRITONSERVER_InferenceResponse* iresponse, const uint32_t flags,
     void* userp)
 {
-  State* state = reinterpret_cast<State*>(userp);
+  std::unique_ptr<StreamResponseReleasePayload> response_release_payload(
+      static_cast<StreamResponseReleasePayload*>(userp));
+
+  auto state = response_release_payload->state_;
+  auto shm_manager = response_release_payload->shm_manager_;
+
   // Ignore Response from CORE in case GRPC Strict as we dont care about
   if (state->context_->gRPCErrorTracker_->triton_grpc_error_) {
     std::lock_guard<std::recursive_mutex> lock(state->context_->mu_);

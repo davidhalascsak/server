@@ -437,19 +437,20 @@ InferGRPCToInput(
           region_name, offset, byte_size, &tmp, &memory_type, &memory_type_id,
           &ref_count));
       base = tmp;
+
+      bool is_added = false;
+      RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddInputRefShmRegion(
+          inference_request, region_name.c_str(), &is_added));
+      if (is_added) {
+        RETURN_IF_ERR(shm_manager->IncrementRefCount(region_name));
+      }
+
       if (memory_type == TRITONSERVER_MEMORY_GPU) {
 #ifdef TRITON_ENABLE_GPU
         RETURN_IF_ERR(shm_manager->GetCUDAHandle(
             region_name,
             reinterpret_cast<cudaIpcMemHandle_t**>(&cuda_ipc_handle)));
 #endif
-      } else {
-        bool is_added = false;
-        RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddInputRefShmRegion(
-            inference_request, region_name.c_str(), &is_added));
-        if (is_added) {
-          RETURN_IF_ERR(shm_manager->IncrementRefCount(region_name));
-        }
       }
     } else {
       if (io.has_contents() && (!request.raw_input_contents().empty())) {
@@ -1011,7 +1012,7 @@ ModelInferHandler::Execute(InferHandler::State* state)
     }
     std::cerr << "#############################################" << std::endl;
 
-    // The payload will be cleaned in callback.
+    // The payload will be cleaned in callback methods.
     request_release_payload.release();
     response_release_payload.release();
   } else {
@@ -1040,8 +1041,8 @@ ModelInferHandler::InferResponseComplete(
     TRITONSERVER_InferenceResponse* iresponse, const uint32_t flags,
     void* userp)
 {
-  ResponseReleasePayload* response_release_payload =
-      static_cast<ResponseReleasePayload*>(userp);
+  std::unique_ptr<ResponseReleasePayload> response_release_payload(
+      static_cast<ResponseReleasePayload*>(userp));
 
   auto state = response_release_payload->state_;
   auto shm_manager = response_release_payload->shm_manager_;
@@ -1095,8 +1096,6 @@ ModelInferHandler::InferResponseComplete(
     // Send state back to the queue so that state can be released
     // in the next cycle.
     state->context_->PutTaskBackToQueue(state);
-
-    delete response_release_payload;
     return;
   }
 
@@ -1145,34 +1144,29 @@ ModelInferHandler::InferResponseComplete(
   // Defer sending the response until FINAL flag is seen or
   // there is error
   if ((flags & TRITONSERVER_RESPONSE_COMPLETE_FINAL) == 0) {
-    delete response_release_payload;
     return;
   }
-
-  if (flags & TRITONSERVER_RESPONSE_COMPLETE_FINAL) {
-    const std::set<std::string>* ref_shm_regions = nullptr;
-    TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
-        state->inference_request_.get(), &ref_shm_regions);
-
-    if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
-      for (const auto& region_name : *ref_shm_regions) {
-        shm_manager->DecrementRefCount(region_name);
-      }
-    }
-  }
-
 
 #ifdef TRITON_ENABLE_TRACING
   state->trace_timestamps_.emplace_back(
       std::make_pair("GRPC_SEND_START", TraceManager::CaptureTimestamp()));
 #endif  // TRITON_ENABLE_TRACING
 
+  const std::set<std::string>* ref_shm_regions = nullptr;
+  TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
+      state->inference_request_.get(), &ref_shm_regions);
+
+  if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
+    for (const auto& region_name : *ref_shm_regions) {
+      shm_manager->DecrementRefCount(region_name);
+    }
+  }
+
   state->step_ = COMPLETE;
   state->context_->responder_->Finish(*response, state->status_, state);
   if (response_created) {
     delete response;
   }
-  delete response_release_payload;
 }
 
 }}}  // namespace triton::server::grpc

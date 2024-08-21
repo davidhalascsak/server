@@ -2726,19 +2726,19 @@ HTTPAPIServer::ParseJsonTritonIO(
                   irequest, input_name, base, buffer_attributes));
 #endif
         } else {
-          std::cerr << "----------- Detected shm Input: " << shm_region
-                    << std::endl;
-
-          bool is_added = false;
-          RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddInputRefShmRegion(
-              irequest, shm_region, &is_added));
-          if (is_added) {
-            RETURN_IF_ERR(shm_manager_->IncrementRefCount(shm_region));
-          }
-
           RETURN_IF_ERR(TRITONSERVER_InferenceRequestAppendInputData(
               irequest, input_name, base, byte_size, memory_type,
               memory_type_id));
+        }
+
+        std::cerr << "----------- Detected shm Input: " << shm_region
+                  << std::endl;
+
+        bool is_added = false;
+        RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddInputRefShmRegion(
+            irequest, shm_region, &is_added));
+        if (is_added) {
+          RETURN_IF_ERR(shm_manager_->IncrementRefCount(shm_region));
         }
       } else {
         const int64_t element_cnt = GetElementCount(shape_vec);
@@ -2837,20 +2837,20 @@ HTTPAPIServer::ParseJsonTritonIO(
                   reinterpret_cast<char*>(cuda_handle))));
 #endif
         } else {
-          std::cerr << "----------- Detected shm output: " << shm_region
-                    << std::endl;
-          bool is_added = false;
-          RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddOutputRefShmRegion(
-              irequest, shm_region, &is_added));
-          if (is_added) {
-            RETURN_IF_ERR(shm_manager_->IncrementRefCount(shm_region));
-          }
-
           infer_req->alloc_payload_.output_map_.emplace(
               std::piecewise_construct, std::forward_as_tuple(output_name),
               std::forward_as_tuple(new AllocPayload::OutputInfo(
                   base, byte_size, memory_type, memory_type_id,
                   nullptr /* cuda ipc handle */)));
+        }
+
+        std::cerr << "----------- Detected shm output: " << shm_region
+                  << std::endl;
+        bool is_added = false;
+        RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddOutputRefShmRegion(
+            irequest, shm_region, &is_added));
+        if (is_added) {
+          RETURN_IF_ERR(shm_manager_->IncrementRefCount(shm_region));
         }
       } else {
         bool use_binary;

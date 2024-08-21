@@ -356,6 +356,13 @@ InferAllocatorPayload(
           region_name, offset, byte_size, &base, &memory_type, &memory_type_id,
           &ref_count));
 
+      bool is_added = false;
+      RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddOutputRefShmRegion(
+          inference_request, region_name.c_str(), &is_added));
+      if (is_added) {
+        RETURN_IF_ERR(shm_manager->IncrementRefCount(region_name));
+      }
+
       if (memory_type == TRITONSERVER_MEMORY_GPU) {
 #ifdef TRITON_ENABLE_GPU
         char* cuda_handle;
@@ -366,13 +373,6 @@ InferAllocatorPayload(
             ShmInfo(base, byte_size, memory_type, memory_type_id, cuda_handle));
 #endif
       } else {
-        bool is_added = false;
-        RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddOutputRefShmRegion(
-            inference_request, region_name.c_str(), &is_added));
-        if (is_added) {
-          RETURN_IF_ERR(shm_manager->IncrementRefCount(region_name));
-        }
-
         alloc_payload->shm_map_.emplace(
             io.name(), ShmInfo(
                            base, byte_size, memory_type, memory_type_id,

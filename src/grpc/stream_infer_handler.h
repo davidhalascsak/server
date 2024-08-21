@@ -115,6 +115,19 @@ class ModelStreamInferHandler
   static void StateWriteResponse(InferHandler::State* state);
   bool Finish(State* state);
 
+  // Simple structure that carries the payload needed for
+  // response release callback.
+  struct StreamResponseReleasePayload {
+    State* state_;
+    std::shared_ptr<SharedMemoryManager> shm_manager_;
+
+    ResponseReleasePayload(
+        State* state, const std::shared_ptr<SharedMemoryManager>& shm_manager)
+        : state_(state), shm_manager_(shm_manager)
+    {
+    }
+  };
+
   TraceManager* trace_manager_;
   std::shared_ptr<SharedMemoryManager> shm_manager_;
   TRITONSERVER_ResponseAllocator* allocator_;
