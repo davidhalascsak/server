@@ -94,7 +94,7 @@ class RequestReleasePayload final {
  public:
   explicit RequestReleasePayload(
       const std::shared_ptr<TRITONSERVER_InferenceRequest>& inference_request,
-      const std::shared_ptr<SharedMemoryManager> shm_manager)
+      const std::shared_ptr<SharedMemoryManager>& shm_manager)
       : inference_request_(inference_request), shm_manager_(shm_manager)
   {
   }
@@ -111,32 +111,6 @@ class RequestReleasePayload final {
 
  private:
   std::shared_ptr<TRITONSERVER_InferenceRequest> inference_request_ = nullptr;
-  std::shared_ptr<SharedMemoryManager> shm_manager_ = nullptr;
-};
-
-// Simple class that carries the userp payload needed for
-// response release callback.
-class ResponseReleasePayload final {
- public:
-  explicit ResponseReleasePayload(
-      const std::shared_ptr<InferHandler::State> state_ptr,
-      const std::shared_ptr<SharedMemoryManager> shm_manager)
-      : state_ptr_(state_ptr), shm_manager_(shm_manager)
-  {
-  }
-
-  std::shared_ptr<InferHandler::State> GetState() const
-  {
-    return state_ptr_;
-  }
-
-  std::shared_ptr<SharedMemoryManager> GetShmManager() const
-  {
-    return shm_manager_;
-  }
-
- private:
-  std::shared_ptr<InferHandler::State> state_ptr_ = nullptr;
   std::shared_ptr<SharedMemoryManager> shm_manager_ = nullptr;
 };
 
@@ -1532,6 +1506,19 @@ class ModelInferHandler
   static void InferResponseComplete(
       TRITONSERVER_InferenceResponse* response, const uint32_t flags,
       void* userp);
+
+  // Simple structure that carries the payload needed for
+  // response release callback.
+  struct ResponseReleasePayload {
+    State* state_;
+    std::shared_ptr<SharedMemoryManager> shm_manager_;
+
+    ResponseReleasePayload(
+        State* state, const std::shared_ptr<SharedMemoryManager>& shm_manager)
+        : state_(state), shm_manager_(shm_manager)
+    {
+    }
+  };
 
   TraceManager* trace_manager_;
   std::shared_ptr<SharedMemoryManager> shm_manager_;

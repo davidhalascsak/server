@@ -944,9 +944,8 @@ ModelInferHandler::Execute(InferHandler::State* state)
   auto request_release_payload = std::make_unique<RequestReleasePayload>(
       state->inference_request_, shm_manager_);
 
-  std::shared_ptr<InferHandler::State> state_shared_ptr(state);
   auto response_release_payload =
-      std::make_unique<ResponseReleasePayload>(state_shared_ptr, shm_manager_);
+      std::make_unique<ResponseReleasePayload>(state, shm_manager_);
 
   if (err == nullptr) {
     err = TRITONSERVER_InferenceRequestSetReleaseCallback(
@@ -1042,8 +1041,8 @@ ModelInferHandler::InferResponseComplete(
 {
   ResponseReleasePayload* response_release_payload =
       static_cast<ResponseReleasePayload*>(userp);
-  auto state = response_release_payload->GetState();
-  auto shm_manager = response_release_payload->GetShmManager();
+  State* state = response_release_payload->state_;
+  auto shm_manager = response_release_payload->shm_manager_;
 
   // There are multiple handlers registered in the gRPC service
   // Hence, we would need to properly synchronize this thread
