@@ -121,7 +121,7 @@ class ModelStreamInferHandler
     State* state_;
     std::shared_ptr<SharedMemoryManager> shm_manager_;
 
-    ResponseReleasePayload(
+    StreamResponseReleasePayload(
         State* state, const std::shared_ptr<SharedMemoryManager>& shm_manager)
         : state_(state), shm_manager_(shm_manager)
     {

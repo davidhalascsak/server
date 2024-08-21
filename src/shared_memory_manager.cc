@@ -752,7 +752,7 @@ SharedMemoryManager::UnregisterHelper(
           TRITONSERVER_ERROR_INTERNAL,
           std::string(
               "Cannot unregister shared memory region '" + name +
-              "' as it is currently in use by " +
+              "', it is currently in use by " +
               std::to_string(it->second->ref_count_) + " requests.")
               .c_str());
     }
