@@ -1011,8 +1011,9 @@ ModelInferHandler::Execute(InferHandler::State* state)
     }
     std::cerr << "#############################################" << std::endl;
 
-    // The payload will be cleaned in request release callback.
+    // The payload will be cleaned in callback.
     request_release_payload.release();
+    response_release_payload.release();
   } else {
     // If error go immediately to COMPLETE.
     LOG_VERBOSE(1) << "[request id: " << request_id << "] "
@@ -1041,7 +1042,8 @@ ModelInferHandler::InferResponseComplete(
 {
   ResponseReleasePayload* response_release_payload =
       static_cast<ResponseReleasePayload*>(userp);
-  State* state = response_release_payload->state_;
+
+  auto state = response_release_payload->state_;
   auto shm_manager = response_release_payload->shm_manager_;
 
   // There are multiple handlers registered in the gRPC service
