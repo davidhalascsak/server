@@ -747,16 +747,17 @@ SharedMemoryManager::UnregisterHelper(
   // Must hold the lock on register_mu_ while calling this function.
   auto it = shared_memory_map_.find(name);
   if (it != shared_memory_map_.end() && it->second->kind_ == memory_type) {
+    if (!ignore_ref_count && it->second->ref_count_ > 0) {
+      return TRITONSERVER_ErrorNew(
+          TRITONSERVER_ERROR_INTERNAL,
+          std::string(
+              "Cannot unregister shared memory region '" + name +
+              "' as it is currently in use by " +
+              std::to_string(it->second->ref_count_) + " requests.")
+              .c_str());
+    }
+
     if (it->second->kind_ == TRITONSERVER_MEMORY_CPU) {
-      if (!ignore_ref_count && it->second->ref_count_ > 0) {
-        return TRITONSERVER_ErrorNew(
-            TRITONSERVER_ERROR_INTERNAL,
-            std::string(
-                "Cannot unregister shared memory region '" + name +
-                "' as it is currently in use by " +
-                std::to_string(it->second->ref_count_) + " requests.")
-                .c_str());
-      }
       RETURN_IF_ERR(
           UnmapSharedMemory(it->second->mapped_addr_, it->second->byte_size_));
     } else {
