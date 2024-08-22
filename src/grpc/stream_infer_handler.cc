@@ -653,6 +653,18 @@ ModelStreamInferHandler::StreamInferResponseComplete(
                    << ", skipping response generation as grpc transaction was "
                       "cancelled... ";
 
+    if (is_complete) {
+      const std::set<std::string>* ref_shm_regions = nullptr;
+      TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
+          state->inference_request_.get(), &ref_shm_regions);
+
+      if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
+        for (const auto& region_name : *ref_shm_regions) {
+          shm_manager->DecrementRefCount(region_name);
+        }
+      }
+    }
+
     // If this was the final callback for the state
     // then cycle through the completion queue so
     // that state object can be released.
