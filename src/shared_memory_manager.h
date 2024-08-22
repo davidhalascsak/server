@@ -132,16 +132,18 @@ class SharedMemoryManager {
 
   /// Unregister all shared memory blocks of specified type from the manager.
   /// \param memory_type The type of memory to unregister.
+  /// \param ignore_ref_count If true, the shared memory region will be
+  /// unregistered even if ref_count_ is greater than 0.
   /// \return a TRITONSERVER_Error indicating success or failure.
   TRITONSERVER_Error* UnregisterAll(
       TRITONSERVER_MemoryType memory_type, const bool ignore_ref_count = false);
 
-  /// Increments the reference count for the named shared memory block.
+  /// Increments the reference count for the specified shared memory block.
   /// \param name The name of the shared memory block.
   /// \return a TRITONSERVER_Error indicating success or failure.
   TRITONSERVER_Error* IncrementRefCount(const std::string& name);
 
-  /// Decrements the reference count for the named shared memory block.
+  /// Decrements the reference count for the specified shared memory block.
   /// \param name The name of the shared memory block.
   /// \return a TRITONSERVER_Error indicating success or failure.
   TRITONSERVER_Error* DecrementRefCount(const std::string& name);

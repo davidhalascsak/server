@@ -99,14 +99,9 @@ class RequestReleasePayload final {
   {
   }
 
-  std::shared_ptr<SharedMemoryManager> GetShmManager() const
+  const std::shared_ptr<SharedMemoryManager>& GetShmManager() const
   {
     return shm_manager_;
-  }
-
-  std::shared_ptr<TRITONSERVER_InferenceRequest> GetInferenceRequest() const
-  {
-    return inference_request_;
   }
 
  private:

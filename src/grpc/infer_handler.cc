@@ -671,6 +671,7 @@ InferRequestComplete(
         shm_manager->DecrementRefCount(region_name);
       }
     }
+
     delete request_release_payload;
   }
 }
@@ -994,25 +995,7 @@ ModelInferHandler::Execute(InferHandler::State* state)
   // to handle gRPC stream cancellation.
   if (err == nullptr) {
     state->context_->InsertInflightState(state);
-    const std::set<std::string>* ref_shm_regions = nullptr;
-    err = TRITONSERVER_InferenceRequestGetInputRefShmRegions(
-        irequest, &ref_shm_regions);
-
-    std::cerr
-        << "#################### TRITONSERVER_InferenceRequestGetRefShmRegions "
-           "#########################"
-        << std::endl;
-    if (ref_shm_regions != nullptr) {
-      std::cout << "Shared Memory Regions:" << std::endl;
-
-      // Iterate and print each region
-      for (const auto& region : *ref_shm_regions) {
-        std::cout << "region name: - " << region << std::endl;
-      }
-    }
-    std::cerr << "#############################################" << std::endl;
-
-    // The payload will be cleaned in callback methods.
+    // The payloads will be cleaned up in the callback methods.
     request_release_payload.release();
     response_release_payload.release();
   } else {
@@ -1096,6 +1079,7 @@ ModelInferHandler::InferResponseComplete(
     // Send state back to the queue so that state can be released
     // in the next cycle.
     state->context_->PutTaskBackToQueue(state);
+
     return;
   }
 
@@ -1146,6 +1130,7 @@ ModelInferHandler::InferResponseComplete(
   if ((flags & TRITONSERVER_RESPONSE_COMPLETE_FINAL) == 0) {
     return;
   }
+
 
 #ifdef TRITON_ENABLE_TRACING
   state->trace_timestamps_.emplace_back(

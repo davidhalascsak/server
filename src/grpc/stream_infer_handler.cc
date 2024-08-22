@@ -335,7 +335,7 @@ ModelStreamInferHandler::Process(InferHandler::State* state, bool rpc_ok)
     // irequest to handle gRPC stream cancellation.
     if (err == nullptr) {
       state->context_->InsertInflightState(state);
-      // The payload will be cleaned in callback methods.
+      // The payloads will be cleaned up in the callback methods.
       request_release_payload.release();
       response_release_payload.release();
     } else {

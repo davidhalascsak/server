@@ -416,7 +416,7 @@ class HTTPAPIServer : public HTTPServer {
     bool end_{false};
   };
 
-  // Simple structure that carries the userp payload needed for
+  // Simple class that carries the userp payload needed for
   // request release callback.
   class RequestReleasePayload final {
    public:
@@ -436,14 +436,9 @@ class HTTPAPIServer : public HTTPServer {
       }
     }
 
-    std::shared_ptr<SharedMemoryManager> GetShmManager() const
+    const std::shared_ptr<SharedMemoryManager>& GetShmManager() const
     {
       return shm_manager_;
-    }
-
-    std::shared_ptr<TRITONSERVER_InferenceRequest> GetInferenceRequest() const
-    {
-      return inference_request_;
     }
 
    private:

@@ -424,7 +424,18 @@ SagemakerAPIServer::SagemakeInferRequestClass::InferResponseComplete(
   // Defer sending the response until FINAL flag is seen
   if ((flags & TRITONSERVER_RESPONSE_COMPLETE_FINAL) == 0) {
     return;
+  } else {
+    const std::set<std::string>* ref_shm_regions = nullptr;
+    TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
+        infer_request->triton_request_.get(), &ref_shm_regions);
+
+    if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
+      for (const auto& region_name : *ref_shm_regions) {
+        infer_request->shm_manager_->DecrementRefCount(region_name);
+      }
+    }
   }
+
   evthr_defer(infer_request->thread_, ReplyCallback, infer_request);
 }
 
