@@ -550,7 +550,7 @@ SagemakerAPIServer::SageMakerMMEHandleInfer(
   if (err == nullptr) {
     connection_paused = true;
 
-    auto infer_request = CreateInferRequest(req, irequest_shared, shm_manager_);
+    auto infer_request = CreateInferRequest(req, irequest_shared);
     auto request_release_payload = std::make_unique<RequestReleasePayload>(
         irequest_shared, decompressed_buffer, shm_manager_);
 

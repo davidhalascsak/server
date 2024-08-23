@@ -122,8 +122,8 @@ class SagemakerAPIServer : public HTTPAPIServer {
 
   std::unique_ptr<InferRequestClass> CreateInferRequest(
       evhtp_request_t* req,
-      const std::shared_ptr<TRITONSERVER_InferenceRequest>& triton_request,
-      const std::shared_ptr<SharedMemoryManager>& shm_manager) override
+      const std::shared_ptr<TRITONSERVER_InferenceRequest>& triton_request)
+      override
   {
     return std::unique_ptr<InferRequestClass>(new SagemakeInferRequestClass(
         server_.get(), req, GetResponseCompressionType(req), triton_request,

@@ -1265,10 +1265,12 @@ class InferHandler : public HandlerBase {
       std::lock_guard<std::mutex> lock(alloc_mu_);
 
       if (state_bucket_.size() < max_state_bucket_count_) {
-        auto err = DecrementShmRefCounts(state);
-        // [FIXME] Handle error correctly
-        if (err != nullptr) {
-          LOG_VERBOSE(1) << TRITONSERVER_ErrorMessage(err);
+        if (state->inference_request_) {
+          auto err = DecrementShmRefCounts(state);
+          // [FIXME] Handle error correctly
+          if (err != nullptr) {
+            LOG_VERBOSE(1) << TRITONSERVER_ErrorMessage(err);
+          }
         }
         state->Release();
         state_bucket_.push_back(state);
@@ -1453,17 +1455,24 @@ TRITONSERVER_Error*
 InferHandler<ServiceType, ServerResponderType, RequestType, ResponseType>::
     DecrementShmRefCounts(InferHandler::State* state)
 {
-  const std::set<std::string>* ref_shm_regions = nullptr;
-  TRITONSERVER_Error* err = TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
-      state->inference_request_.get(), &ref_shm_regions);
+  const std::set<std::string>* in_ref_shm_regions = nullptr;
+  RETURN_IF_ERR(TRITONSERVER_InferenceRequestGetInputRefShmRegions(
+      state->inference_request_.get(), &in_ref_shm_regions));
 
-  if (err != nullptr || ref_shm_regions == nullptr ||
-      ref_shm_regions->empty()) {
-    return err;
+  if (in_ref_shm_regions != nullptr) {
+    for (const auto& region_name : *in_ref_shm_regions) {
+      shm_manager_->DecrementRefCount(region_name);
+    }
   }
 
-  for (const auto& region_name : *ref_shm_regions) {
-    shm_manager_->DecrementRefCount(region_name);
+  const std::set<std::string>* op_ref_shm_regions = nullptr;
+  RETURN_IF_ERR(TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
+      state->inference_request_.get(), &op_ref_shm_regions));
+
+  if (op_ref_shm_regions != nullptr) {
+    for (const auto& region_name : *op_ref_shm_regions) {
+      shm_manager_->DecrementRefCount(region_name);
+    }
   }
 
   return err;

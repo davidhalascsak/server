@@ -460,12 +460,11 @@ class HTTPAPIServer : public HTTPServer {
   // [FIXME] extract to "infer" class
   virtual std::unique_ptr<InferRequestClass> CreateInferRequest(
       evhtp_request_t* req,
-      const std::shared_ptr<TRITONSERVER_InferenceRequest>& triton_request,
-      const std::shared_ptr<SharedMemoryManager>& shm_manager)
+      const std::shared_ptr<TRITONSERVER_InferenceRequest>& triton_request)
   {
     return std::unique_ptr<InferRequestClass>(new InferRequestClass(
         server_.get(), req, GetResponseCompressionType(req), triton_request,
-        shm_manager));
+        shm_manager_));
   }
 
   // Helper function to retrieve infer request header in the form specified by

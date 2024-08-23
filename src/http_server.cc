@@ -3659,7 +3659,7 @@ HTTPAPIServer::HandleInfer(
   // HTTP request paused when creating inference request. Resume it on exit if
   // this function returns early due to error. Otherwise resumed in callback.
   bool connection_paused = true;
-  auto infer_request = CreateInferRequest(req, irequest_shared, shm_manager_);
+  auto infer_request = CreateInferRequest(req, irequest_shared);
   infer_request->trace_ = trace;
 
   const char* request_id = "<id_unknown>";
