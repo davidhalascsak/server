@@ -1321,7 +1321,8 @@ InferHandler<ServiceType, ServerResponderType, RequestType, ResponseType>::
         ServiceType* service, ::grpc::ServerCompletionQueue* cq,
         size_t max_state_bucket_count,
         std::pair<std::string, std::string> restricted_kv,
-        const std::string& header_forward_pattern)
+        const std::string& header_forward_pattern,
+        const std::shared_ptr<SharedMemoryManager>& shm_manager)
     : name_(name), tritonserver_(tritonserver), service_(service), cq_(cq),
       max_state_bucket_count_(max_state_bucket_count),
       restricted_kv_(restricted_kv),
