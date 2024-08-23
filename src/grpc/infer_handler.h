@@ -1475,7 +1475,7 @@ InferHandler<ServiceType, ServerResponderType, RequestType, ResponseType>::
     }
   }
 
-  return err;
+  return nullptr;
 }
 
 //
