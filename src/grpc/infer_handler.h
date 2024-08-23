@@ -1260,15 +1260,14 @@ class InferHandler : public HandlerBase {
   {
     LOG_VERBOSE(2) << "StateRelease, " << state->unique_id_ << " Step "
                    << state->step_;
-
     if (max_state_bucket_count_ > 0) {
       std::lock_guard<std::mutex> lock(alloc_mu_);
 
       if (state_bucket_.size() < max_state_bucket_count_) {
         if (state->inference_request_) {
           auto err = DecrementShmRefCounts(state);
-          // [FIXME] Handle error correctly
           if (err != nullptr) {
+            // [FIXME] Handle error properly
             LOG_VERBOSE(1) << TRITONSERVER_ErrorMessage(err);
           }
         }

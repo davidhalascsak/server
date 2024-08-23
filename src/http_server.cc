@@ -3871,19 +3871,31 @@ HTTPAPIServer::InferRequestClass::InferResponseComplete(
     TRITONSERVER_ErrorDelete(err);
   }
 
+  LOG_VERBOSE(1)
+      << "---------------------- flags & TRITONSERVER_RESPONSE_COMPLETE_FINAL: "
+      << (flags & TRITONSERVER_RESPONSE_COMPLETE_FINAL) << "--------------";
+
   // Defer sending the response until FINAL flag is seen
   if ((flags & TRITONSERVER_RESPONSE_COMPLETE_FINAL) == 0) {
     return;
-  } else {
-    const std::set<std::string>* ref_shm_regions = nullptr;
-    TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
-        infer_request->triton_request_.get(), &ref_shm_regions);
+  }
 
-    if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
-      for (const auto& region_name : *ref_shm_regions) {
-        infer_request->shm_manager_->DecrementRefCount(region_name);
-      }
+  LOG_VERBOSE(1) << "---------------------- Decrementing ref count for region "
+                    "--------------";
+
+  const std::set<std::string>* ref_shm_regions = nullptr;
+  TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
+      infer_request->triton_request_.get(), &ref_shm_regions);
+
+  if (ref_shm_regions != nullptr) {
+    LOG_VERBOSE(1)
+        << "---------------------- Inside if condition - Decrement shm ref"
+           "--------------";
+    for (const auto& region_name : *ref_shm_regions) {
+      LOG_VERBOSE(1) << "Region: " << region_name;
+      infer_request->shm_manager_->DecrementRefCount(region_name);
     }
+    LOG_VERBOSE(1) << "------------------------------------";
   }
 
   evthr_defer(
