@@ -933,7 +933,6 @@ ModelInferHandler::Execute(InferHandler::State* state)
 
   auto request_release_payload =
       std::make_unique<RequestReleasePayload>(state->inference_request_);
-
   if (err == nullptr) {
     err = TRITONSERVER_InferenceRequestSetReleaseCallback(
         irequest, InferRequestComplete,

@@ -294,7 +294,6 @@ ModelStreamInferHandler::Process(InferHandler::State* state, bool rpc_ok)
 
     auto request_release_payload =
         std::make_unique<RequestReleasePayload>(state->inference_request_);
-
     if (err == nullptr) {
       err = TRITONSERVER_InferenceRequestSetReleaseCallback(
           irequest, InferRequestComplete,
@@ -596,7 +595,6 @@ ModelStreamInferHandler::StreamInferResponseComplete(
     void* userp)
 {
   State* state = reinterpret_cast<State*>(userp);
-
   // Ignore Response from CORE in case GRPC Strict as we dont care about
   if (state->context_->gRPCErrorTracker_->triton_grpc_error_) {
     std::lock_guard<std::recursive_mutex> lock(state->context_->mu_);
