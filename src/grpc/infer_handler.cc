@@ -660,18 +660,6 @@ InferRequestComplete(
       static_cast<RequestReleasePayload*>(userp);
 
   if ((flags & TRITONSERVER_REQUEST_RELEASE_ALL) != 0) {
-    std::shared_ptr<SharedMemoryManager> shm_manager =
-        request_release_payload->GetShmManager();
-    const std::set<std::string>* ref_shm_regions = nullptr;
-    TRITONSERVER_InferenceRequestGetInputRefShmRegions(
-        request, &ref_shm_regions);
-
-    if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
-      for (const auto& region_name : *ref_shm_regions) {
-        shm_manager->DecrementRefCount(region_name);
-      }
-    }
-
     delete request_release_payload;
   }
 }
@@ -943,11 +931,8 @@ ModelInferHandler::Execute(InferHandler::State* state)
         response_queue, &state->alloc_payload_, irequest);
   }
 
-  auto request_release_payload = std::make_unique<RequestReleasePayload>(
-      state->inference_request_, shm_manager_);
-
-  auto response_release_payload =
-      std::make_unique<ResponseReleasePayload>(state, shm_manager_);
+  auto request_release_payload =
+      std::make_unique<RequestReleasePayload>(state->inference_request_);
 
   if (err == nullptr) {
     err = TRITONSERVER_InferenceRequestSetReleaseCallback(
@@ -958,8 +943,7 @@ ModelInferHandler::Execute(InferHandler::State* state)
     err = TRITONSERVER_InferenceRequestSetResponseCallback(
         irequest, allocator_,
         &state->alloc_payload_ /* response_allocator_userp */,
-        InferResponseComplete,
-        response_release_payload.get() /* response_userp */);
+        InferResponseComplete, reinterpret_cast<void*>(state));
   }
   // Get request ID for logging in case of error.
   const char* request_id = "";
@@ -995,9 +979,8 @@ ModelInferHandler::Execute(InferHandler::State* state)
   // to handle gRPC stream cancellation.
   if (err == nullptr) {
     state->context_->InsertInflightState(state);
-    // The payloads will be cleaned up in the callback methods.
+    // The payload will be cleaned in request release callback.
     request_release_payload.release();
-    response_release_payload.release();
   } else {
     // If error go immediately to COMPLETE.
     LOG_VERBOSE(1) << "[request id: " << request_id << "] "
@@ -1024,11 +1007,7 @@ ModelInferHandler::InferResponseComplete(
     TRITONSERVER_InferenceResponse* iresponse, const uint32_t flags,
     void* userp)
 {
-  std::unique_ptr<ResponseReleasePayload> response_release_payload(
-      static_cast<ResponseReleasePayload*>(userp));
-
-  auto state = response_release_payload->state_;
-  auto shm_manager = response_release_payload->shm_manager_;
+  State* state = reinterpret_cast<State*>(userp);
 
   // There are multiple handlers registered in the gRPC service
   // Hence, we would need to properly synchronize this thread
@@ -1053,16 +1032,6 @@ ModelInferHandler::InferResponseComplete(
   // If gRPC Stream is cancelled then no need of forming and returning
   // a response.
   if (state->IsGrpcContextCancelled()) {
-    const std::set<std::string>* ref_shm_regions = nullptr;
-    TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
-        state->inference_request_.get(), &ref_shm_regions);
-
-    if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
-      for (const auto& region_name : *ref_shm_regions) {
-        shm_manager->DecrementRefCount(region_name);
-      }
-    }
-
     // Clean-up the received response object.
     LOG_TRITONSERVER_ERROR(
         TRITONSERVER_InferenceResponseDelete(iresponse),
@@ -1136,16 +1105,6 @@ ModelInferHandler::InferResponseComplete(
   state->trace_timestamps_.emplace_back(
       std::make_pair("GRPC_SEND_START", TraceManager::CaptureTimestamp()));
 #endif  // TRITON_ENABLE_TRACING
-
-  const std::set<std::string>* ref_shm_regions = nullptr;
-  TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
-      state->inference_request_.get(), &ref_shm_regions);
-
-  if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
-    for (const auto& region_name : *ref_shm_regions) {
-      shm_manager->DecrementRefCount(region_name);
-    }
-  }
 
   state->step_ = COMPLETE;
   state->context_->responder_->Finish(*response, state->status_, state);

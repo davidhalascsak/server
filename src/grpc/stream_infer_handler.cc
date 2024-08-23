@@ -292,11 +292,8 @@ ModelStreamInferHandler::Process(InferHandler::State* state, bool rpc_ok)
           response_queue_, &state->alloc_payload_, irequest);
     }
 
-    auto request_release_payload = std::make_unique<RequestReleasePayload>(
-        state->inference_request_, shm_manager_);
-
-    auto response_release_payload =
-        std::make_unique<StreamResponseReleasePayload>(state, shm_manager_);
+    auto request_release_payload =
+        std::make_unique<RequestReleasePayload>(state->inference_request_);
 
     if (err == nullptr) {
       err = TRITONSERVER_InferenceRequestSetReleaseCallback(
@@ -307,8 +304,7 @@ ModelStreamInferHandler::Process(InferHandler::State* state, bool rpc_ok)
       err = TRITONSERVER_InferenceRequestSetResponseCallback(
           irequest, allocator_,
           &state->alloc_payload_ /* response_allocator_userp */,
-          StreamInferResponseComplete,
-          response_release_payload.get() /* response_userp */);
+          StreamInferResponseComplete, reinterpret_cast<void*>(state));
     }
 
     if (err == nullptr) {
@@ -335,9 +331,8 @@ ModelStreamInferHandler::Process(InferHandler::State* state, bool rpc_ok)
     // irequest to handle gRPC stream cancellation.
     if (err == nullptr) {
       state->context_->InsertInflightState(state);
-      // The payloads will be cleaned up in the callback methods.
+      // The payload will be cleaned in request release callback.
       request_release_payload.release();
-      response_release_payload.release();
     } else {
       // If there was an error then enqueue the error response and show
       // it to be ready for writing.
@@ -600,11 +595,7 @@ ModelStreamInferHandler::StreamInferResponseComplete(
     TRITONSERVER_InferenceResponse* iresponse, const uint32_t flags,
     void* userp)
 {
-  std::unique_ptr<StreamResponseReleasePayload> response_release_payload(
-      static_cast<StreamResponseReleasePayload*>(userp));
-
-  auto state = response_release_payload->state_;
-  auto shm_manager = response_release_payload->shm_manager_;
+  State* state = reinterpret_cast<State*>(userp);
 
   // Ignore Response from CORE in case GRPC Strict as we dont care about
   if (state->context_->gRPCErrorTracker_->triton_grpc_error_) {
@@ -652,18 +643,6 @@ ModelStreamInferHandler::StreamInferResponseComplete(
                    << state->unique_id_
                    << ", skipping response generation as grpc transaction was "
                       "cancelled... ";
-
-    if (is_complete) {
-      const std::set<std::string>* ref_shm_regions = nullptr;
-      TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
-          state->inference_request_.get(), &ref_shm_regions);
-
-      if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
-        for (const auto& region_name : *ref_shm_regions) {
-          shm_manager->DecrementRefCount(region_name);
-        }
-      }
-    }
 
     // If this was the final callback for the state
     // then cycle through the completion queue so
