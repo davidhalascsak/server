@@ -3666,7 +3666,7 @@ HTTPAPIServer::HandleInfer(
   // Callback to cleanup on any errors encountered below. Capture everything
   // by reference to capture local updates, except for shared pointers which
   // should be captured by value in case of ref count issues.
-  auto error_callback = [&, trace,](TRITONSERVER_Error* error) {
+  auto error_callback = [&, trace](TRITONSERVER_Error* error) {
     if (infer_request) {
       auto err = infer_request->DecrementShmRefCounts();
       if (err != nullptr) {
