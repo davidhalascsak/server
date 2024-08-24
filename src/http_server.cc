@@ -3663,14 +3663,12 @@ HTTPAPIServer::HandleInfer(
   infer_request->trace_ = trace;
 
   const char* request_id = "<id_unknown>";
-  auto& infer_request_ref = infer_request;
   // Callback to cleanup on any errors encountered below. Capture everything
   // by reference to capture local updates, except for shared pointers which
   // should be captured by value in case of ref count issues.
-  auto error_callback = [&, trace,
-                         &infer_request_ref](TRITONSERVER_Error* error) {
-    if (infer_request_ref) {
-      auto err = infer_request_ref->DecrementShmRefCounts();
+  auto error_callback = [&, trace,](TRITONSERVER_Error* error) {
+    if (infer_request) {
+      auto err = infer_request->DecrementShmRefCounts();
       if (err != nullptr) {
         LOG_VERBOSE(1) << "[request id: " << request_id
                        << "] DecrementShmRefCounts failed: "
