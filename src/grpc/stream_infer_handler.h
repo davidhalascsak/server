@@ -115,7 +115,6 @@ class ModelStreamInferHandler
   bool Finish(State* state);
 
   TraceManager* trace_manager_;
-  std::shared_ptr<SharedMemoryManager> shm_manager_;
   TRITONSERVER_ResponseAllocator* allocator_;
 
   grpc_compression_level compression_level_;
