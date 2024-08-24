@@ -1267,8 +1267,8 @@ class InferHandler : public HandlerBase {
         if (state->inference_request_) {
           auto err = DecrementShmRefCounts(state);
           if (err != nullptr) {
-            // [FIXME] Handle error properly
-            LOG_VERBOSE(1) << TRITONSERVER_ErrorMessage(err);
+            LOG_VERBOSE(1) << "DecrementShmRefCounts failed: "
+                           << TRITONSERVER_ErrorMessage(err);
           }
         }
         state->Release();

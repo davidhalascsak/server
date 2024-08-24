@@ -292,6 +292,8 @@ class HTTPAPIServer : public HTTPServer {
 
     uint32_t IncrementResponseCount();
 
+    TRITONSERVER_Error* DecrementShmRefCounts();
+
     // Only used if tracing enabled
     std::shared_ptr<TraceManager::Trace> trace_;
 

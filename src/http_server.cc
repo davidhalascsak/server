@@ -3666,7 +3666,16 @@ HTTPAPIServer::HandleInfer(
   // Callback to cleanup on any errors encountered below. Capture everything
   // by reference to capture local updates, except for shared pointers which
   // should be captured by value in case of ref count issues.
-  auto error_callback = [&, trace](TRITONSERVER_Error* error) {
+  auto error_callback = [&, trace, infer_request = std::move(infer_request)](
+                            TRITONSERVER_Error* error) {
+    if (infer_request) {
+      auto err = infer_request->DecrementShmRefCounts();
+      if (err != nullptr) {
+        LOG_VERBOSE(1) << "[request id: " << request_id
+                       << "] DecrementShmRefCounts failed: "
+                       << TRITONSERVER_ErrorMessage(err);
+      }
+    }
     if (error != nullptr) {
       LOG_VERBOSE(1) << "[request id: " << request_id << "] "
                      << "Infer failed: " << TRITONSERVER_ErrorMessage(error);
@@ -3806,17 +3815,17 @@ HTTPAPIServer::InferRequestClass::InferRequestComplete(
       reinterpret_cast<RequestReleasePayload*>(userp);
 
   if ((flags & TRITONSERVER_REQUEST_RELEASE_ALL) != 0) {
-    std::shared_ptr<SharedMemoryManager> shm_manager =
-        request_release_payload->GetShmManager();
-    const std::set<std::string>* ref_shm_regions = nullptr;
-    TRITONSERVER_InferenceRequestGetInputRefShmRegions(
-        request, &ref_shm_regions);
-
-    if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
-      for (const auto& region_name : *ref_shm_regions) {
-        shm_manager->DecrementRefCount(region_name);
-      }
-    }
+    // std::shared_ptr<SharedMemoryManager> shm_manager =
+    //     request_release_payload->GetShmManager();
+    // const std::set<std::string>* ref_shm_regions = nullptr;
+    // TRITONSERVER_InferenceRequestGetInputRefShmRegions(
+    //     request, &ref_shm_regions);
+    //
+    // if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
+    //  for (const auto& region_name : *ref_shm_regions) {
+    //    shm_manager->DecrementRefCount(region_name);
+    //  }
+    //}
 
     delete request_release_payload;
   }
@@ -3883,23 +3892,48 @@ HTTPAPIServer::InferRequestClass::InferResponseComplete(
   LOG_VERBOSE(1) << "---------------------- Decrementing ref count for region "
                     "--------------";
 
-  const std::set<std::string>* ref_shm_regions = nullptr;
-  TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
-      infer_request->triton_request_.get(), &ref_shm_regions);
-
-  if (ref_shm_regions != nullptr) {
-    LOG_VERBOSE(1)
-        << "---------------------- Inside if condition - Decrement shm ref"
-           "--------------";
-    for (const auto& region_name : *ref_shm_regions) {
-      LOG_VERBOSE(1) << "Region: " << region_name;
-      infer_request->shm_manager_->DecrementRefCount(region_name);
-    }
-    LOG_VERBOSE(1) << "------------------------------------";
+  auto error = infer_request->DecrementShmRefCounts();
+  if (error != nullptr) {
+    LOG_VERBOSE(1) << "DecrementShmRefCounts failed: "
+                   << TRITONSERVER_ErrorMessage(err);
   }
 
   evthr_defer(
       infer_request->thread_, InferRequestClass::ReplyCallback, infer_request);
+}
+
+TRITONSERVER_Error*
+HTTPAPIServer::InferRequestClass::DecrementShmRefCounts()
+{
+  const std::set<std::string>* in_ref_shm_regions = nullptr;
+  RETURN_IF_ERR(TRITONSERVER_InferenceRequestGetInputRefShmRegions(
+      triton_request_.get(), &in_ref_shm_regions));
+
+  if (in_ref_shm_regions != nullptr) {
+    LOG_VERBOSE(1) << "---------------------- Inside if condition 1111111 - "
+                      "Decrement shm ref"
+                      "--------------";
+    for (const auto& region_name : *in_ref_shm_regions) {
+      shm_manager_->DecrementRefCount(region_name);
+    }
+    LOG_VERBOSE(1) << "------------------------------------";
+  }
+
+  const std::set<std::string>* op_ref_shm_regions = nullptr;
+  RETURN_IF_ERR(TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
+      triton_request_.get(), &op_ref_shm_regions));
+
+  if (op_ref_shm_regions != nullptr) {
+    LOG_VERBOSE(1) << "---------------------- Inside if condition 222222 - "
+                      "Decrement shm ref"
+                      "--------------";
+    for (const auto& region_name : *op_ref_shm_regions) {
+      shm_manager_->DecrementRefCount(region_name);
+    }
+    LOG_VERBOSE(1) << "------------------------------------";
+  }
+
+  return nullptr;
 }
 
 TRITONSERVER_Error*
