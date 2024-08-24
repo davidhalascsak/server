@@ -127,7 +127,7 @@ class SagemakerAPIServer : public HTTPAPIServer {
   {
     return std::unique_ptr<InferRequestClass>(new SagemakeInferRequestClass(
         server_.get(), req, GetResponseCompressionType(req), triton_request,
-        shm_manager));
+        shm_manager_));
   }
   TRITONSERVER_Error* GetInferenceHeaderLength(
       evhtp_request_t* req, int32_t content_length,
