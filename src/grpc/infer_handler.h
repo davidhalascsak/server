@@ -342,7 +342,7 @@ InferAllocatorPayload(
           &ref_count));
 
       bool is_added = false;
-      RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddOutputRefShmRegion(
+      RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddRefShmRegion(
           inference_request, region_name.c_str(), &is_added));
       if (is_added) {
         RETURN_IF_ERR(shm_manager->IncrementRefCount(region_name));
@@ -1454,22 +1454,12 @@ TRITONSERVER_Error*
 InferHandler<ServiceType, ServerResponderType, RequestType, ResponseType>::
     DecrementShmRefCounts(InferHandler::State* state)
 {
-  const std::set<std::string>* in_ref_shm_regions = nullptr;
-  RETURN_IF_ERR(TRITONSERVER_InferenceRequestGetInputRefShmRegions(
-      state->inference_request_.get(), &in_ref_shm_regions));
+  const std::set<std::string>* ref_shm_regions = nullptr;
+  RETURN_IF_ERR(TRITONSERVER_InferenceRequestGetRefShmRegions(
+      state->inference_request_.get(), &ref_shm_regions));
 
-  if (in_ref_shm_regions != nullptr) {
-    for (const auto& region_name : *in_ref_shm_regions) {
-      shm_manager_->DecrementRefCount(region_name);
-    }
-  }
-
-  const std::set<std::string>* op_ref_shm_regions = nullptr;
-  RETURN_IF_ERR(TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
-      state->inference_request_.get(), &op_ref_shm_regions));
-
-  if (op_ref_shm_regions != nullptr) {
-    for (const auto& region_name : *op_ref_shm_regions) {
+  if (ref_shm_regions != nullptr) {
+    for (const auto& region_name : *ref_shm_regions) {
       shm_manager_->DecrementRefCount(region_name);
     }
   }

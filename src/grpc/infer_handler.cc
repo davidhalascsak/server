@@ -439,7 +439,7 @@ InferGRPCToInput(
       base = tmp;
 
       bool is_added = false;
-      RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddInputRefShmRegion(
+      RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddRefShmRegion(
           inference_request, region_name.c_str(), &is_added));
       if (is_added) {
         RETURN_IF_ERR(shm_manager->IncrementRefCount(region_name));

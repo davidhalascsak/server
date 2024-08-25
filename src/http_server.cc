@@ -2735,7 +2735,7 @@ HTTPAPIServer::ParseJsonTritonIO(
                   << std::endl;
 
         bool is_added = false;
-        RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddInputRefShmRegion(
+        RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddRefShmRegion(
             irequest, shm_region, &is_added));
         if (is_added) {
           RETURN_IF_ERR(shm_manager_->IncrementRefCount(shm_region));
@@ -2847,7 +2847,7 @@ HTTPAPIServer::ParseJsonTritonIO(
         std::cerr << "----------- Detected shm output: " << shm_region
                   << std::endl;
         bool is_added = false;
-        RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddOutputRefShmRegion(
+        RETURN_IF_ERR(TRITONSERVER_InferenceRequestAddRefShmRegion(
             irequest, shm_region, &is_added));
         if (is_added) {
           RETURN_IF_ERR(shm_manager_->IncrementRefCount(shm_region));
@@ -3904,29 +3904,15 @@ HTTPAPIServer::InferRequestClass::InferResponseComplete(
 TRITONSERVER_Error*
 HTTPAPIServer::InferRequestClass::DecrementShmRefCounts()
 {
-  const std::set<std::string>* in_ref_shm_regions = nullptr;
-  RETURN_IF_ERR(TRITONSERVER_InferenceRequestGetInputRefShmRegions(
-      triton_request_.get(), &in_ref_shm_regions));
+  const std::set<std::string>* ref_shm_regions = nullptr;
+  RETURN_IF_ERR(TRITONSERVER_InferenceRequestGetRefShmRegions(
+      triton_request_.get(), &ref_shm_regions));
 
-  if (in_ref_shm_regions != nullptr) {
+  if (ref_shm_regions != nullptr) {
     LOG_VERBOSE(1) << "---------------------- Inside if condition 1111111 - "
                       "Decrement shm ref"
                       "--------------";
-    for (const auto& region_name : *in_ref_shm_regions) {
-      shm_manager_->DecrementRefCount(region_name);
-    }
-    LOG_VERBOSE(1) << "------------------------------------";
-  }
-
-  const std::set<std::string>* op_ref_shm_regions = nullptr;
-  RETURN_IF_ERR(TRITONSERVER_InferenceRequestGetOutputRefShmRegions(
-      triton_request_.get(), &op_ref_shm_regions));
-
-  if (op_ref_shm_regions != nullptr) {
-    LOG_VERBOSE(1) << "---------------------- Inside if condition 222222 - "
-                      "Decrement shm ref"
-                      "--------------";
-    for (const auto& region_name : *op_ref_shm_regions) {
+    for (const auto& region_name : *ref_shm_regions) {
       shm_manager_->DecrementRefCount(region_name);
     }
     LOG_VERBOSE(1) << "------------------------------------";
