@@ -123,9 +123,7 @@ def run_command(command):
             stderr=subprocess.PIPE,
         )
     except subprocess.CalledProcessError as e:
-        log_message(f"Error executing command: {e.cmd}")
-        log_message(e.output)
-        log_message(e.stderr)
+        raise (e)
 
 
 def clone_from_github(repo, tag, org):
@@ -137,7 +135,6 @@ def clone_from_github(repo, tag, org):
     """
     # Construct the full GitHub repository URL
     repo_url = f"https://github.com/{org}/{repo}.git"
-    print(repo_url)
     # Construct the git clone command
     if tag:
         clone_command = [
@@ -155,7 +152,7 @@ def clone_from_github(repo, tag, org):
         subprocess.run(clone_command, check=True)
         log_message(f"Successfully cloned {repo}")
     except subprocess.CalledProcessError as e:
-        log_message(f"Failed to clone {repo}. Error: {e}")
+        raise (e)
 
 
 def parse_repo_tag(repo_tags):
@@ -189,8 +186,8 @@ def get_git_repo_name(file_path):
             .decode()
             .strip()
         )
-    except subprocess.CalledProcessError:
-        return None
+    except subprocess.CalledProcessError as e:
+        raise (e)
 
     # Extract repository name from the remote URL.
     if remote_url.endswith(".git"):
@@ -396,6 +393,12 @@ def main():
     if "python_backend" in repo_tags:
         clone_from_github("python_backend", repo_tags["python_backend"], github_org)
 
+    # Usage generate_docs.py --repo-tag=tensorrtllm_backend:main
+    if "tensorrtllm_backend" in repo_tags:
+        clone_from_github(
+            "tensorrtllm_backend", repo_tags["tensorrtllm_backend"], github_org
+        )
+
     # Usage generate_docs.py --backend-tag=custom_backend:main
     # Custom backend can be anything currently empty
     if "custom_backend" in backend_tags:
@@ -412,6 +415,10 @@ def main():
         run_command("rm -rf python_backend")
     if "custom_backend" in backend_tags:
         run_command("rm -rf custom_backend")
+    if "tensorrtllm_backend" in repo_tags:
+        run_command("rm -rf tensorrtllm_backend")
+    if "perf_analyzer" in repo_tags:
+        run_command("rm -rf perf_analyzer")
 
     # Return to previous working directory server/.
     os.chdir(server_abspath)
