@@ -3881,7 +3881,7 @@ HTTPAPIServer::InferRequestClass::InferResponseComplete(
   auto error = infer_request->DecrementShmRefCounts();
   if (error != nullptr) {
     LOG_VERBOSE(1) << "DecrementShmRefCounts failed: "
-                   << TRITONSERVER_ErrorMessage(err);
+                   << TRITONSERVER_ErrorMessage(error);
   }
 
   evthr_defer(
