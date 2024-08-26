@@ -418,35 +418,24 @@ class HTTPAPIServer : public HTTPServer {
     bool end_{false};
   };
 
-  // Simple class that carries the userp payload needed for
+  // Simple structure that carries the userp payload needed for
   // request release callback.
-  class RequestReleasePayload final {
-   public:
+  struct RequestReleasePayload final {
     RequestReleasePayload(
         const std::shared_ptr<TRITONSERVER_InferenceRequest>& inference_request,
-        evbuffer* buffer,
-        const std::shared_ptr<SharedMemoryManager>& shm_manager)
-        : inference_request_(inference_request), buffer_(buffer),
-          shm_manager_(shm_manager)
-    {
-    }
+        evbuffer* buffer)
+        : inference_request_(inference_request), buffer_(buffer) {};
 
     ~RequestReleasePayload()
     {
       if (buffer_ != nullptr) {
         evbuffer_free(buffer_);
       }
-    }
-
-    const std::shared_ptr<SharedMemoryManager>& GetShmManager() const
-    {
-      return shm_manager_;
-    }
+    };
 
    private:
     std::shared_ptr<TRITONSERVER_InferenceRequest> inference_request_ = nullptr;
     evbuffer* buffer_ = nullptr;
-    std::shared_ptr<SharedMemoryManager> shm_manager_ = nullptr;
   };
 
  protected:

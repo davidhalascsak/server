@@ -2864,7 +2864,6 @@ HTTPAPIServer::ParseJsonTritonIO(
       }
     }
   }
-
   return nullptr;  // success
 }
 
@@ -3373,8 +3372,8 @@ HTTPAPIServer::HandleGenerate(
           input_metadata, generate_request->RequestSchema(), request),
       error_callback);
 
-  auto request_release_payload = std::make_unique<RequestReleasePayload>(
-      irequest_shared, nullptr, shm_manager_);
+  auto request_release_payload =
+      std::make_unique<RequestReleasePayload>(irequest_shared, nullptr);
   // [FIXME] decompression..
   RETURN_AND_CALLBACK_IF_ERR(
       TRITONSERVER_InferenceRequestSetReleaseCallback(
@@ -3712,7 +3711,7 @@ HTTPAPIServer::HandleInfer(
   RETURN_AND_CALLBACK_IF_ERR(ForwardHeaders(req, irequest), error_callback);
 
   auto request_release_payload = std::make_unique<RequestReleasePayload>(
-      irequest_shared, decompressed_buffer, shm_manager_);
+      irequest_shared, decompressed_buffer);
   RETURN_AND_CALLBACK_IF_ERR(
       TRITONSERVER_InferenceRequestSetReleaseCallback(
           irequest, InferRequestClass::InferRequestComplete,
@@ -3814,18 +3813,6 @@ HTTPAPIServer::InferRequestClass::InferRequestComplete(
       reinterpret_cast<RequestReleasePayload*>(userp);
 
   if ((flags & TRITONSERVER_REQUEST_RELEASE_ALL) != 0) {
-    // std::shared_ptr<SharedMemoryManager> shm_manager =
-    //     request_release_payload->GetShmManager();
-    // const std::set<std::string>* ref_shm_regions = nullptr;
-    // TRITONSERVER_InferenceRequestGetInputRefShmRegions(
-    //     request, &ref_shm_regions);
-    //
-    // if (ref_shm_regions != nullptr && !ref_shm_regions->empty()) {
-    //  for (const auto& region_name : *ref_shm_regions) {
-    //    shm_manager->DecrementRefCount(region_name);
-    //  }
-    //}
-
     delete request_release_payload;
   }
 }

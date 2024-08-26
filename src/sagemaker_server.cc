@@ -548,7 +548,7 @@ SagemakerAPIServer::SageMakerMMEHandleInfer(
 
     auto infer_request = CreateInferRequest(req, irequest_shared);
     auto request_release_payload = std::make_unique<RequestReleasePayload>(
-        irequest_shared, decompressed_buffer, shm_manager_);
+        irequest_shared, decompressed_buffer);
 
 #ifdef TRITON_ENABLE_TRACING
     infer_request->trace_ = trace;
@@ -601,6 +601,13 @@ SagemakerAPIServer::SageMakerMMEHandleInfer(
 
   if (err != nullptr) {
     LOG_VERBOSE(1) << "Infer failed: " << TRITONSERVER_ErrorMessage(err);
+
+    auto error = infer_request->DecrementShmRefCounts();
+    if (error != nullptr) {
+      LOG_VERBOSE(1) << "DecrementShmRefCounts failed: "
+                     << TRITONSERVER_ErrorMessage(err);
+    }
+
     evhtp_headers_add_header(
         req->headers_out,
         evhtp_header_new(kContentTypeHeader, "application/json", 1, 1));
