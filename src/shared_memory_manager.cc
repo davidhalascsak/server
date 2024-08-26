@@ -668,10 +668,10 @@ SharedMemoryManager::UnregisterAll(
          it != shared_memory_map_.cend(); it = next_it) {
       ++next_it;
       if (it->second->kind_ == TRITONSERVER_MEMORY_GPU) {
-        TRITONSERVER_Error* err = UnregisterHelper(it->first, memory_type);
-        ;
+        TRITONSERVER_Error* err = UnregisterHelper(it->first, memory_type, ignore_ref_count);
         if (err != nullptr) {
           unregister_fails.push_back(it->first);
+          LOG_VERBOSE(1) << TRITONSERVER_ErrorMessage(err);
         }
       }
     }
